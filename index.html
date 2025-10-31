@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Árbol genealógico interactivo</title>
+  <style>
+    :root{
+      --card-w: 160px;
+      --card-h: 200px;
+      --accent: rgba(255,255,255,0.08);
+      --glass: rgba(255,255,255,0.06);
+      --text: #fff;
+      --muted: rgba(255,255,255,0.75);
+      --audio-color: #2196f3;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      background: radial-gradient(1200px 600px at 10% 20%, #0f172a 0%, transparent 10%),
+                  radial-gradient(900px 500px at 90% 80%, rgba(10,25,47,0.6) 0%, transparent 10%),
+                  linear-gradient(180deg,#0b1220 0%, #071228 100%);
+      color:var(--text);
+      padding:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:980px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px;
+      padding:28px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.03);
+      position:relative;
+    }
+
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    header h1{font-size:20px;letter-spacing:0.2px}
+    header p{color:var(--muted);font-size:13px}
+
+    .tree{
+      display:grid;
+      grid-template-columns: 1fr auto 1fr;
+      grid-template-rows: auto 40px auto;
+      align-items:start;
+      gap:12px 8px;
+      position:relative;
+    }
+
+    .person{
+      width:var(--card-w);
+      height:var(--card-h);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:12px;
+      gap:10px;
+      border: 1px solid rgba(255,255,255,0.04);
+      position:relative;
+      backdrop-filter: blur(6px);
+      cursor:pointer;
+      transition: transform 0.25s ease;
+    }
+
+    .person:hover { transform: scale(1.05); }
+
+    .photo{
+      width:100px;
+      height:100px;
+      border-radius:8px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      display:flex;align-items:center;justify-content:center;
+    }
+    .photo img{width:100%;height:100%;object-fit:cover;display:block}
+
+    .name{font-weight:600;font-size:15px;text-align:center}
+    .role{font-size:12px;color:var(--muted);text-align:center}
+
+    .father{grid-column:1;grid-row:1;justify-self:center}
+    .mother{grid-column:2;grid-row:1;justify-self:center}
+    .tiana{grid-column:3;grid-row:1;justify-self:center}
+
+    .connector-h{grid-column:1 / 4;grid-row:2;height:40px;position:relative;display:flex;align-items:center;justify-content:center;}
+    .connector-h::before{content:"";width:60%;height:2px;background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));border-radius:2px;position:absolute;top:20px;left:20%;}
+
+    .children{grid-column:1/4;grid-row:3;display:flex;gap:24px;justify-content:center}
+    .child{display:flex;flex-direction:column;align-items:center;position:relative;}
+
+    .father::after, .mother::after, .tiana::after{
+      content:"";position:absolute;left:50%;transform:translateX(-50%);width:2px;height:28px;background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));top:calc(100% + 4px);
+    }
+
+    .child::before{content:"";position:absolute;width:2px;height:22px;background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));top:-26px;left:50%;transform:translateX(-50%);}
+
+    @media (max-width:880px){
+      .tree{grid-template-columns: 1fr 1fr;grid-template-rows:auto 40px auto;}
+      .tiana{grid-column:2}
+      .mother{grid-column:1}
+      .father{grid-column:1}
+      .children{gap:12px}
+      :root{--card-w:140px;--card-h:180px}
+    }
+
+    @media (max-width:520px){
+      .wrap{padding:18px}
+      .tree{grid-template-columns:1fr;grid-template-rows:auto auto auto auto;}
+      .father,.mother,.tiana{justify-self:center;grid-column:1}
+      .connector-h{grid-row:2}
+      .children{flex-direction:row;flex-wrap:wrap;gap:12px}
+    }
+
+    /* Overlay de descripción */
+    .overlay{
+      position:absolute;
+      inset:0;
+      background:rgba(0,0,0,0.85);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      animation: fadeIn 0.3s ease forwards;
+      z-index: 1000;
+    }
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+    .overlay-content{
+      background: rgba(20,28,46,0.95);
+      border-radius:16px;
+      max-width:700px;
+      width:90%;
+      padding:24px;
+      display:flex;
+      gap:24px;
+      align-items:center;
+      animation: zoomIn 0.3s ease forwards;
+    }
+    @keyframes zoomIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}
+
+    .overlay img{
+      width:150px;height:150px;border-radius:12px;object-fit:cover;
+    }
+    .overlay .desc{
+      flex:1;
+    }
+    .overlay .desc h2{margin-bottom:8px;font-size:20px}
+    .overlay .desc p{color:var(--muted);font-size:14px;line-height:1.5}
+
+    /* Audio vertical a la derecha */
+    .audio-box{
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      margin-left:12px;
+    }
+    .audio-box audio{
+      transform: rotate(-90deg);
+      accent-color: var(--audio-color);
+      background-color: var(--audio-color);
+      border-radius:12px;
+      width:130px;
+    }
+
+    .close-btn{
+      position:absolute;top:20px;right:20px;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Family Tree Project</h1>
+        <p>Click on a person to see details and hear their audio.</p>
+      </div>
+    </header>
+
+    <main class="tree">
+      <!-- Padres y tía -->
+      <figure class="person father" data-name="Marvin Nieto" data-role="Father" data-desc="He is 44 years old, tall and strong, lives in Tegucigalpa, Honduras, and is a Real Madrid fan." data-img="papi.jpeg" data-audio="https://media.vocaroo.com/mp3/11r1rFx8i1vW">
+        <div class="photo"><img src="papi.jpeg" alt="Father"></div>
+        <figcaption class="name">Father</figcaption>
+        <div class="role">Papá</div>
+      </figure>
+
+      <figure class="person mother" data-name="Marlene Martinez" data-role="Mother" data-desc="She is 49 years old, short, kind, caring, and beautiful. She is the love of my life." data-img="mami.jpeg" data-audio="https://media.vocaroo.com/mp3/1hWwEXL3E3C7">
+        <div class="photo"><img src="mami.jpeg" alt="Mother"></div>
+        <figcaption class="name">Mother</figcaption>
+        <div class="role">Mamá</div>
+      </figure>
+
+      <figure class="person tiana" data-name="Nora Martinez" data-role="Aunt" data-desc="She is 57 years old, loves traveling, has beautiful hair, loves coffee but dislikes sweets." data-img="tia.jpeg" data-audio="https://media.vocaroo.com/mp3/1kmSmuznExX7">
+        <div class="photo"><img src="tia.jpeg" alt="Aunt"></div>
+        <figcaption class="name">Aunt</figcaption>
+        <div class="role">Tía</div>
+      </figure>
+
+      <div class="connector-h"></div>
+
+      <div class="children">
+        <figure class="person child" data-name="Yared Isaac Nieto" data-role="Son" data-desc="I am 18 years old, love music, have curly hair, slightly tall, and I am a musician. I’m a fan of Olimpia and Real Madrid." data-img="yo.jpeg" data-audio="https://media.vocaroo.com/mp3/17vFbQhqiniU">
+          <div class="photo"><img src="yo.jpeg" alt="Me"></div>
+          <figcaption class="name">I</figcaption>
+          <div class="role">Yo</div>
+        </figure>
+
+        <figure class="person child" data-name="José Yair Nieto" data-role="Younger Brother" data-desc="He is 15 years old, super tall, excellent at soccer, a Barcelona fan, has straight hair, and loves pasta." data-img="menor.jpeg" data-audio="https://media.vocaroo.com/mp3/1ilUZtBGfOWQ">
+          <div class="photo"><img src="menor.jpeg" alt="Younger Brother"></div>
+          <figcaption class="name">Younger Brother</figcaption>
+          <div class="role">Hijo menor</div>
+        </figure>
+
+        <figure class="person child" data-name="Isaías Mauricio Nieto" data-role="Older Brother" data-desc="He is 26 years old, very intelligent and serious, the tallest and oldest of the three brothers, and his favorite color is purple." data-img="mayor.jpeg" data-audio="https://media.vocaroo.com/mp3/14HeYieUbFS6">
+          <div class="photo"><img src="mayor.jpeg" alt="Older Brother"></div>
+          <figcaption class="name">Older Brother</figcaption>
+          <div class="role">Hijo mayor</div>
+        </figure>
+      </div>
+    </main>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay">
+      <button class="close-btn" id="closeBtn">×</button>
+      <div class="overlay-content">
+        <img id="overlayImg" src="" alt="Foto">
+        <div class="desc">
+          <h2 id="overlayName"></h2>
+          <p id="overlayRole"></p>
+          <p id="overlayDesc"></p>
+        </div>
+        <div class="audio-box">
+          <audio id="overlayAudio" controls></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const persons = document.querySelectorAll('.person');
+    const overlay = document.getElementById('overlay');
+    const closeBtn = document.getElementById('closeBtn');
+    const oName = document.getElementById('overlayName');
+    const oRole = document.getElementById('overlayRole');
+    const oDesc = document.getElementById('overlayDesc');
+    const oImg = document.getElementById('overlayImg');
+    const oAudio = document.getElementById('overlayAudio');
+
+    persons.forEach(p => {
+      p.addEventListener('click', () => {
+        oName.textContent = p.dataset.name;
+        oRole.textContent = p.dataset.role;
+        oDesc.textContent = p.dataset.desc;
+        oImg.src = p.dataset.img || p.querySelector('img').src;
+        oAudio.src = p.dataset.audio;
+        overlay.style.display = 'flex';
+      });
+    });
+
+    closeBtn.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      oAudio.pause();
+    });
+  </script>
+</body>
+</html>
